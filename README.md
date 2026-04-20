@@ -6,7 +6,7 @@
 
 <div align="center">
 
-<img height="195" src="https://github-readme-streak-stats.herokuapp.com/?user=Ry3nG&hide_border=true&background=10002B&stroke=F72585&ring=F72585&fire=00F5FF&currStreakNum=FFFFFF&sideNums=FFFFFF&currStreakLabel=F72585&sideLabels=C77DFF&dates=C77DFF" alt="streak stats" />
-<img height="195" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Ry3nG&layout=compact&hide_border=true&bg_color=10002B&title_color=F72585&text_color=C77DFF&icon_color=00F5FF&langs_count=8" alt="top languages" />
+<img height="195" src="https://streak-stats.demolab.com/?user=Ry3nG&hide_border=true&background=f2f1ed&stroke=c0a8804D&ring=f54e00&fire=f54e00&currStreakNum=26251e&sideNums=26251e&currStreakLabel=f54e00&sideLabels=80776b&dates=80776b" alt="streak stats" />
+<img height="195" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Ry3nG&layout=compact&hide_border=true&bg_color=f2f1ed&title_color=f54e00&text_color=26251e&icon_color=c08532&langs_count=8&size_weight=0&count_weight=1" alt="top languages" />
 
 </div>
