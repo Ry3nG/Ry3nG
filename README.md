@@ -10,10 +10,10 @@
 <table align="center" width="100%">
   <tr>
     <td width="50%" align="center">
-      <img width="100%" alt="coding time" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-summary.svg">
+      <img width="100%" alt="when i code" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-heatmap.svg">
     </td>
     <td width="50%" align="center">
-      <img width="100%" alt="languages and platforms" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-breakdown.svg">
+      <img width="100%" alt="coding ranges" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-ranges.svg">
     </td>
   </tr>
 </table>

@@ -29,6 +29,8 @@ jobs:
 
       - name: generate wakatime summary cards
         run: python3 scripts/generate_cards.py
+        env:
+          WAKATIME_API_KEY: ${{ secrets.WAKATIME_API_KEY }}
 
       - name: push assets to the output branch
         uses: crazy-max/ghaction-github-pages@v4.0.0
