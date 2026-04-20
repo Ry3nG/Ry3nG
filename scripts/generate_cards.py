@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build Apple-style WakaTime summary SVGs using the authenticated API."""
+"""Build Apple-style WakaTime summary SVGs.
+
+- Left card (coding-heatmap.svg): 7×24 hour-of-day heatmap over last 14 days,
+  uses authenticated /durations endpoint.
+- Right card (coding-breakdown.svg): auto-rotating Languages ↔ Platforms,
+  uses public /stats (all-time).
+"""
 import base64
 import json
 import os
@@ -11,7 +17,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 API_KEY = os.environ.get("WAKATIME_API_KEY")
-BASE = "https://wakatime.com/api/v1/users/current"
+USER = "Ry3nG"
+AUTH_BASE = "https://wakatime.com/api/v1/users/current"
+PUBLIC_BASE = f"https://wakatime.com/api/v1/users/{USER}"
 OUT = Path("dist")
 
 BG = "#f5f5f7"
@@ -26,7 +34,6 @@ FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Helv
 W, H = 540, 195
 RADIUS = 8
 PAD = 28
-
 TZ_OFFSET_HOURS = 8  # Singapore
 
 
@@ -36,29 +43,31 @@ def auth_header():
     return "Basic " + base64.b64encode(API_KEY.encode()).decode()
 
 
-def api_get(path):
-    req = urllib.request.Request(
-        f"{BASE}{path}",
-        headers={"Authorization": auth_header(), "User-Agent": "Mozilla/5.0 card-gen"},
-    )
+def api_get(url, auth=True):
+    headers = {"User-Agent": "Mozilla/5.0 card-gen"}
+    if auth:
+        headers["Authorization"] = auth_header()
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
 
 
-def safe_get(path):
+def safe_get(url, auth=True):
     try:
-        return api_get(path)
+        return api_get(url, auth=auth)
     except urllib.error.HTTPError as e:
-        print(f"  ! {path} -> HTTP {e.code}", file=sys.stderr)
+        print(f"  ! {url} -> HTTP {e.code}", file=sys.stderr)
         return None
     except Exception as e:
-        print(f"  ! {path} -> {e}", file=sys.stderr)
+        print(f"  ! {url} -> {e}", file=sys.stderr)
         return None
 
 
 def xml_escape(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+
+# ---------- Heatmap (left card) ----------
 
 def build_heatmap():
     today = datetime.now(timezone.utc).date()
@@ -71,7 +80,7 @@ def build_heatmap():
         d = start + timedelta(days=i)
         iso = d.isoformat()
         time.sleep(0.4)
-        resp = safe_get(f"/durations?date={iso}")
+        resp = safe_get(f"{AUTH_BASE}/durations?date={iso}")
         if not resp:
             continue
         weekday = d.weekday()
@@ -139,96 +148,79 @@ def build_heatmap():
     return "\n".join(parts) + "\n"
 
 
-def extract_panel(stats_resp, label):
-    if not stats_resp:
-        return None
-    d = stats_resp.get("data", {})
-    total = d.get("human_readable_total", "")
-    if " hrs" in total:
-        hrs_num = total.split(" hrs")[0]
-    elif " hr" in total:
-        hrs_num = total.split(" hr")[0]
-    else:
-        hrs_num = "0"
-    daily = d.get("human_readable_daily_average", "—")
-    langs = d.get("languages", [])[:3]
-    return {"label": label, "hrs_num": hrs_num, "daily": daily, "langs": langs}
+# ---------- Breakdown rotation (right card) ----------
+
+def stacked_bar(items, colors, x, y, w, h):
+    out = ['  <g>']
+    cx = x
+    for item, color in zip(items, colors):
+        seg = w * item["percent"] / 100
+        out.append(f'    <rect x="{cx:.2f}" y="{y}" width="{seg:.2f}" height="{h}" fill="{color}"/>')
+        cx += seg
+    out.append('  </g>')
+    return "\n".join(out)
 
 
-def render_panel(p):
-    parts = [
-        f'    <text x="{PAD}" y="44" font-size="11" font-weight="600" fill="{DIM}" letter-spacing="1.5">{xml_escape(p["label"])}</text>',
-        f'    <text x="{PAD}" y="108" font-size="58" font-weight="600" fill="{TEXT}" letter-spacing="-1.2">{xml_escape(p["hrs_num"])}</text>',
-        f'    <text x="{PAD}" y="132" font-size="13" fill="{DIM}">hrs · {xml_escape(p["daily"])} daily avg</text>',
+def legend(items, colors, x, y, col_w=160, row_h=22):
+    out = []
+    for i, (item, color) in enumerate(zip(items, colors)):
+        col = i % 3
+        row = i // 3
+        lx = x + col * col_w
+        ly = y + row * row_h
+        label = f'{item["name"]} {item["percent"]:.1f}%'
+        out.append(f'    <circle cx="{lx + 4}" cy="{ly - 4}" r="4" fill="{color}"/>')
+        out.append(f'    <text x="{lx + 14}" y="{ly}" font-size="12" fill="{TEXT}">{xml_escape(label)}</text>')
+    return "\n".join(out)
+
+
+def panel(kicker, items, colors):
+    items = items[:6]
+    colors = colors[:len(items)]
+    out = [
+        f'    <text x="{PAD}" y="44" font-size="11" font-weight="600" fill="{DIM}" letter-spacing="1.5">{kicker.upper()}</text>',
+        stacked_bar(items, colors, PAD, 72, W - 2 * PAD, 14),
+        legend(items, colors, PAD, 118),
     ]
-    if p["langs"]:
-        lang_text = "  ·  ".join(
-            f'{xml_escape(l["name"])} {l["percent"]:.0f}%' for l in p["langs"]
-        )
-        parts.append(
-            f'    <text x="{PAD}" y="162" font-size="12" fill="{TEXT}">{xml_escape(lang_text)}</text>'
-        )
-    return "\n".join(parts)
+    return "\n".join(out)
 
 
-def build_rotating(panels):
-    panels = [p for p in panels if p]
-    n = len(panels)
-    if n == 0:
-        return (
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{FONT}">'
-            f'<rect width="{W}" height="{H}" rx="{RADIUS}" fill="{BG}"/>'
-            f'<text x="{W//2}" y="{H//2}" text-anchor="middle" font-family="{FONT}" font-size="13" fill="{DIM}">no data</text>'
-            f'</svg>\n'
-        )
+def build_breakdown(stats_data):
+    langs_raw = stats_data.get("languages", [])
+    top5 = langs_raw[:5]
+    rest = sum(l["percent"] for l in langs_raw[5:])
+    langs = top5 + ([{"name": "Other", "percent": rest}] if rest > 0.5 else [])
+    oss = stats_data.get("operating_systems", [])
 
-    cycle = 5 * n
-    fade = 0.03
+    lang_colors = [ACCENT] + GRAYS
+    os_colors = [ACCENT] + GRAYS
+
+    dur = "10s"
+    key_times = "0;0.47;0.5;0.97;1"
+    lang_vals = "1;1;0;0;1"
+    os_vals = "0;0;1;1;0"
+
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" font-family="{FONT}">',
         f'  <rect width="{W}" height="{H}" rx="{RADIUS}" fill="{BG}"/>',
+        '  <g opacity="1">',
+        panel("Languages", langs, lang_colors),
+        f'    <animate attributeName="opacity" values="{lang_vals}" keyTimes="{key_times}" dur="{dur}" repeatCount="indefinite"/>',
+        '  </g>',
+        '  <g opacity="0">',
+        panel("Platforms", oss, os_colors),
+        f'    <animate attributeName="opacity" values="{os_vals}" keyTimes="{key_times}" dur="{dur}" repeatCount="indefinite"/>',
+        '  </g>',
     ]
 
-    for i, p in enumerate(panels):
-        t0 = i / n
-        t1 = (i + 1) / n
-        parts.append(f'  <g opacity="{1 if i == 0 else 0}">')
-        parts.append(render_panel(p))
-        if n > 1:
-            if i == 0:
-                kt = f"0;{max(0, t1 - fade):.3f};{t1:.3f};{1 - fade:.3f};1"
-                vv = "1;1;0;0;1"
-            else:
-                kt = f"0;{max(0, t0 - fade):.3f};{t0:.3f};{t1 - fade:.3f};{t1:.3f};1"
-                vv = "0;0;1;1;0;0"
-            parts.append(
-                f'    <animate attributeName="opacity" values="{vv}" keyTimes="{kt}" dur="{cycle}s" repeatCount="indefinite"/>'
-            )
-        parts.append('  </g>')
-
+    dots_cx = W / 2
     dots_y = H - 14
-    dot_r = 3
-    gap_between = 10
-    total_dots_w = n * (2 * dot_r) + (n - 1) * gap_between
-    dots_start = (W - total_dots_w) / 2
-    for i in range(n):
-        cx = dots_start + dot_r + i * (2 * dot_r + gap_between)
-        init_fill = ACCENT if i == 0 else GRAYS[3]
-        parts.append(f'  <circle cx="{cx:.1f}" cy="{dots_y}" r="{dot_r}" fill="{init_fill}">')
-        if n > 1:
-            t0 = i / n
-            t1 = (i + 1) / n
-            if i == 0:
-                kt = f"0;{max(0, t1 - fade):.3f};{t1:.3f};{1 - fade:.3f};1"
-                vv = f"{ACCENT};{ACCENT};{GRAYS[3]};{GRAYS[3]};{ACCENT}"
-            else:
-                kt = f"0;{max(0, t0 - fade):.3f};{t0:.3f};{t1 - fade:.3f};{t1:.3f};1"
-                vv = f"{GRAYS[3]};{GRAYS[3]};{ACCENT};{ACCENT};{GRAYS[3]};{GRAYS[3]}"
-            parts.append(
-                f'    <animate attributeName="fill" values="{vv}" keyTimes="{kt}" dur="{cycle}s" repeatCount="indefinite"/>'
-            )
-        parts.append('  </circle>')
-
+    parts.append(f'  <circle cx="{dots_cx - 7}" cy="{dots_y}" r="3" fill="{ACCENT}">')
+    parts.append(f'    <animate attributeName="fill" values="{ACCENT};{ACCENT};{GRAYS[3]};{GRAYS[3]};{ACCENT}" keyTimes="{key_times}" dur="{dur}" repeatCount="indefinite"/>')
+    parts.append('  </circle>')
+    parts.append(f'  <circle cx="{dots_cx + 7}" cy="{dots_y}" r="3" fill="{GRAYS[3]}">')
+    parts.append(f'    <animate attributeName="fill" values="{GRAYS[3]};{GRAYS[3]};{ACCENT};{ACCENT};{GRAYS[3]}" keyTimes="{key_times}" dur="{dur}" repeatCount="indefinite"/>')
+    parts.append('  </circle>')
     parts.append('</svg>')
     return "\n".join(parts) + "\n"
 
@@ -236,29 +228,17 @@ def build_rotating(panels):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
-    print("Fetching stats ranges...")
-    panels = []
-    for path, label in [
-        ("/stats/this_year", "2026 SO FAR"),
-        ("/stats/last_6_months", "LAST 6 MONTHS"),
-        ("/stats/last_7_days", "LAST 7 DAYS"),
-    ]:
-        time.sleep(0.3)
-        data = safe_get(path)
-        p = extract_panel(data, label)
-        if p:
-            print(f"  {label}: {p['hrs_num']} hrs")
-            panels.append(p)
-
     print("Building heatmap from last 14 days of /durations...")
-    heatmap_svg = build_heatmap()
-    (OUT / "coding-heatmap.svg").write_text(heatmap_svg)
+    (OUT / "coding-heatmap.svg").write_text(build_heatmap())
 
-    print("Building rotating stats card...")
-    rotating_svg = build_rotating(panels)
-    (OUT / "coding-ranges.svg").write_text(rotating_svg)
+    print("Fetching public all-time /stats for breakdown...")
+    stats = safe_get(f"{PUBLIC_BASE}/stats", auth=False)
+    if not stats:
+        print("! failed to fetch public stats", file=sys.stderr)
+        sys.exit(1)
+    (OUT / "coding-breakdown.svg").write_text(build_breakdown(stats["data"]))
 
-    print(f"Wrote {OUT}/coding-heatmap.svg and {OUT}/coding-ranges.svg")
+    print(f"Wrote {OUT}/coding-heatmap.svg and {OUT}/coding-breakdown.svg")
 
 
 if __name__ == "__main__":

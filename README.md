@@ -13,7 +13,7 @@
       <img width="100%" alt="when i code" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-heatmap.svg">
     </td>
     <td width="50%" align="center">
-      <img width="100%" alt="coding ranges" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-ranges.svg">
+      <img width="100%" alt="languages and platforms" src="https://raw.githubusercontent.com/Ry3nG/Ry3nG/output/coding-breakdown.svg">
     </td>
   </tr>
 </table>
