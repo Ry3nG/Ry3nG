@@ -1,0 +1,50 @@
+name: skyline
+
+on:
+  schedule:
+    - cron: "0 18 * * 1"        # every Monday 02:00 Singapore time
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [web/**, scripts/**, .github/workflows/skyline.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: npm ci
+      - run: pip install pillow
+
+      - name: Fetch contribution calendar and commit clock
+        env:
+          # A classic PAT in the secret GH_STATS_TOKEN (scopes: repo, read:user) also counts private repos.
+          # Without it the default token is used and only public data is read.
+          GH_TOKEN: ${{ secrets.GH_STATS_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_LOGIN: ${{ github.repository_owner }}
+          TZ_OFFSET: "8"
+        run: node scripts/fetch.mjs
+
+      - run: node scripts/render.mjs dark frames_dark
+      - run: node scripts/render.mjs light frames_light
+      - run: |
+          python scripts/encode.py dark frames_dark dist
+          python scripts/encode.py light frames_light dist
+
+      - name: Publish to the skyline branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: skyline
+          build_dir: dist
+          keep_history: false
+          jekyll: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

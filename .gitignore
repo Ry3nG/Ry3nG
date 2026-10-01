@@ -1,1 +1,5 @@
 dist/
+node_modules/
+frames_*/
+web/data.json
+web/clock.json

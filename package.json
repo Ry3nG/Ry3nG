@@ -1,0 +1,15 @@
+{
+  "name": "profile-skyline",
+  "private": true,
+  "type": "module",
+  "description": "Generates the animated 3D contribution skyline for the GitHub profile README",
+  "scripts": {
+    "fetch": "node scripts/fetch.mjs",
+    "render:dark": "node scripts/render.mjs dark frames_dark",
+    "render:light": "node scripts/render.mjs light frames_light"
+  },
+  "dependencies": {
+    "puppeteer": "^24.0.0",
+    "three": "^0.186.0"
+  }
+}
