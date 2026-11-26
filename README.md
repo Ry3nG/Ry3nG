@@ -12,6 +12,7 @@ Embodied intelligence and world models. Algorithm Research Intern at SenseTime, 
 </p>
 
 **Research**
+- [Endogenous and Exogenous Memory for World Action Models](https://pawteam-eai.github.io/em-wam/) · 2026
 - [World Models as Native Latent Action Models](https://pawteam-eai.github.io/native-lam/) · arXiv 2026
 - [Mundo: Customized World Model](https://mundo-world-model.github.io/) · 2026
 - [Has GPT-6-Astra Achieved Embodied Intelligence?](https://www.sensenova.ai/has-gpt-6-astra-achieved-embodied-intelligence) · Technical Report 2026
